@@ -1,0 +1,235 @@
+#include "pch.h"
+#include <iostream>
+#include <algorithm>
+#include <cstdlib>
+#include <ctime>
+#include <set>
+#include <utility>
+#include <windows.h>
+
+struct T_cell
+{
+	using T_cells = std::set< T_cell >;
+	int x_;
+	int y_;
+
+	T_cell(int x, int y) : x_(x), y_(y) {}
+
+	T_cell operator- (T_cell cell) const
+	{
+		return T_cell(x_ - cell.x_, y_ - cell.y_);
+	}
+
+	bool operator< (T_cell cell) const
+	{
+		return std::make_pair(x_, y_)
+			< std::make_pair(cell.x_, cell.y_);
+	}
+
+	T_cells get_cell_and_its_adjacent() const
+	{
+		T_cells res;
+		for (int i = x_ - 1; i <= x_ + 1; ++i)
+		{
+			for (int j = y_ - 1; j <= y_ + 1; ++j)
+			{
+				res.insert(T_cell(i, j));
+			}//for
+		}//for
+
+		return res;
+	}
+
+	int adjacent_count_in(T_cells const & cells) const
+	{
+		int res{};
+		for (int i = x_ - 1; i <= x_ + 1; ++i)
+		{
+			for (int j = y_ - 1; j <= y_ + 1; ++j)
+			{
+				auto cell_cur = T_cell(i, j);
+				if (cell_cur != *this && cells.count(cell_cur))
+				{
+					++res;
+				}
+			}//for
+		}//for
+
+		return res;
+	}
+
+	bool operator!= (T_cell cell) const
+	{
+		return *this < cell || cell < *this;
+	}
+
+	bool operator== (T_cell cell) const
+	{
+		return !(*this != cell);
+	}
+
+};
+
+typedef T_cell::T_cells T_cells;
+
+class T_life
+{
+
+	T_cell center_pos_;
+	T_cells cells_;
+
+public:
+
+	T_life() : center_pos_(0, 0) {}
+
+	void play()
+	{
+		generate_cells();
+
+		while (!cells_.empty())
+		{
+			auto cells_old = cells_;
+
+			print_and_shift();
+			make_life_step();
+
+			if (cells_ == cells_old)
+			{
+				std::cout << "Game fixated. Press Enter." << std::endl;
+				return;
+			}//if
+		}//while
+
+		std::cout << "All cells died.  Press Enter." << std::endl;
+	}
+
+private:
+
+	void generate_cells()
+	{
+		for (int i{}; i < 4; ++i)
+		{
+			for (int j{}; j < 4; ++j)
+			{
+				if (rand() % 3)
+				{
+					cells_.insert(T_cell(i, j));
+				}
+			}//for
+		}//for
+	}
+
+	void print_and_shift()
+	{
+		const int SHORT_MIN = -0x7fff;
+
+		for (;;)
+		{
+			system("CLS");
+			print_cells();
+
+			std::cout << "Press arrow keys or SPACEBAR." << std::endl;
+
+			for (;;)
+			{
+				if (GetAsyncKeyState(VK_UP) == SHORT_MIN)
+				{
+					--center_pos_.x_;
+					break;
+				}
+
+				if (GetAsyncKeyState(VK_DOWN) == SHORT_MIN)
+				{
+					++center_pos_.x_;
+					break;
+				}
+
+				if (GetAsyncKeyState(VK_LEFT) == SHORT_MIN)
+				{
+					--center_pos_.y_;
+					break;
+				}
+
+				if (GetAsyncKeyState(VK_RIGHT) == SHORT_MIN)
+				{
+					++center_pos_.y_;
+					break;
+				}
+
+				if (GetAsyncKeyState(VK_SPACE) == SHORT_MIN)
+				{
+					return;
+				}
+			}//for
+		}//for
+	}
+
+	void print_cells() const
+	{
+		for (int i{ -11 }; i < 13; ++i)
+		{
+			for (int j{ -18 }; j < 21; ++j)
+			{
+				bool to_show = cells_.count(T_cell(i, j) - center_pos_);
+
+				std::cout << (to_show ? '*' : ' ') << ' ';
+			}//for
+
+			std::cout << std::endl;
+		}//for
+	}
+
+	void make_life_step()
+	{
+		T_cells cells_and_their_adjacent = get_cells_and_their_adjacent();
+		T_cells new_cells;
+
+		copy_with_rules(cells_and_their_adjacent, new_cells);
+
+		std::swap(new_cells, cells_);
+	}
+
+	T_cells get_cells_and_their_adjacent() const
+	{
+		T_cells res;
+
+		for (auto cell : cells_)
+		{
+			auto cell_and_its_adjacent = cell.get_cell_and_its_adjacent();
+
+			res.insert(cell_and_its_adjacent.begin(), cell_and_its_adjacent.end());
+		}//for
+
+		return res;
+	}
+
+	void copy_with_rules(T_cells const & cells, T_cells & new_cells) const
+	{
+		for (auto cell : cells)
+		{
+			switch (cell.adjacent_count_in(cells_))
+			{
+			case 2:
+				if (cells_.count(cell))
+				{
+					new_cells.insert(cell);
+				}
+				break;
+			case 3:
+				new_cells.insert(cell);
+				break;
+			default:
+				break;
+			}//switch
+		}//for
+	}
+
+};
+
+int main()
+{
+	std::ios::sync_with_stdio(false);
+	srand(unsigned(time(0)));
+	T_life life;
+	life.play();
+}
